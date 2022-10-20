@@ -51,7 +51,7 @@ func main() {
 	}
 	defer client.Close()
 
-	//ctx = metadata.AppendToOutgoingContext(ctx, "x-goog-allowed-resources", allow)
+	//ctx = metadata.AppendToOutgoingContext(ctx, "x-goog-foo", "bar")
 
 	t := client.Topic("topic1")
 
