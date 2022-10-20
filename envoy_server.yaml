@@ -1,0 +1,169 @@
+node:
+  cluster: service_greeter
+  id: test-id
+
+admin:
+  access_log_path: /dev/null
+  address:
+    socket_address:
+      address: 0.0.0.0
+      port_value: 9000
+
+
+static_resources:
+  listeners:
+  - name: listener_0
+    address:
+      socket_address: { address: 0.0.0.0, port_value: 8081 }
+    listener_filters:
+    - name: envoy.filters.listener.tls_inspector
+      typed_config:
+        "@type": type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector
+    - name: envoy.filters.listener.http_inspector
+      typed_config:
+        "@type": type.googleapis.com/envoy.extensions.filters.listener.http_inspector.v3.HttpInspector    
+    filter_chains:
+    - filter_chain_match:
+        server_names: ["pubsub.googleapis.com"]
+      transport_socket:
+        name: envoy.transport_sockets.tls
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
+          common_tls_context:
+            tls_certificates:
+            - certificate_chain:
+                filename: certs/googleapis.crt
+              private_key:
+                filename: certs/googleapis.key
+      filters:
+      - name: envoy.filters.network.http_connection_manager
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+          stat_prefix: ingress_http
+          http2_protocol_options: {}
+          codec_type: AUTO
+          route_config:
+            request_headers_to_add:
+            - header:
+                key: "x-goog-header"
+                value: "value"
+            virtual_hosts:          
+            - name: pubsub_service
+              domains: ["pubsub.googleapis.com"]
+              routes:
+              - match: 
+                  path: "/google.pubsub.v1.Publisher/Publish"  
+                  grpc: {}            
+                route:
+                  cluster: dynamic_forward_proxy_cluster
+                typed_per_filter_config:
+                  envoy.filters.http.dynamic_forward_proxy:
+                    '@type': type.googleapis.com/envoy.extensions.filters.http.dynamic_forward_proxy.v3.PerRouteConfig
+                
+
+          http_filters:    
+          - name: envoy.filters.http.dynamic_forward_proxy
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.http.dynamic_forward_proxy.v3.FilterConfig
+              dns_cache_config:
+                name: dynamic_forward_proxy_cache_config
+                dns_lookup_family: V4_ONLY     
+          - name: envoy.filters.http.router
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router  
+
+
+    - filter_chain_match:
+        server_names: ["httpbin.org"]
+      transport_socket:
+        name: envoy.transport_sockets.tls
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
+          common_tls_context:
+            tls_certificates:
+            - certificate_chain:
+                filename: certs/httpbin.crt
+              private_key:
+                filename: certs/httpbin.key    
+      filters:
+      - name: envoy.filters.network.http_connection_manager
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+          stat_prefix: ingress_http
+          route_config:
+            request_headers_to_add:
+            - header:
+                key: "x-foo"
+                value: "bar" 
+            virtual_hosts:
+            - name: httpbin_service
+              domains: ["httpbin.org"]
+              routes:
+              - match: 
+                  path: "/get"          
+                route:
+                  cluster: dynamic_forward_proxy_cluster
+                typed_per_filter_config:
+                  envoy.filters.http.dynamic_forward_proxy:
+                    '@type': type.googleapis.com/envoy.extensions.filters.http.dynamic_forward_proxy.v3.PerRouteConfig     
+          http_filters:    
+          - name: envoy.filters.http.dynamic_forward_proxy
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.http.dynamic_forward_proxy.v3.FilterConfig
+              dns_cache_config:
+                name: dynamic_forward_proxy_cache_config
+                dns_lookup_family: V4_ONLY     
+          - name: envoy.filters.http.router
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router  
+    - filters:     
+      - name: envoy.filters.network.http_connection_manager
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager      
+          stat_prefix: ingress_healthz
+          codec_type: AUTO
+          route_config:
+            name: local_route
+            virtual_hosts:
+            - name: local_service
+              domains: ["localhost"]
+              routes:
+              - match:
+                  prefix: "/healthz"
+                direct_response:
+                  status: 200                       
+          http_filters:        
+          - name: envoy.filters.http.router
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router                
+      transport_socket:
+        name: envoy.transport_sockets.tls
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
+          common_tls_context:
+            tls_certificates:
+            - certificate_chain:
+                filename: certs/envoy.crt
+              private_key:
+                filename: certs/envoy.key              
+
+  clusters:
+  - name: dynamic_forward_proxy_cluster
+    lb_policy: CLUSTER_PROVIDED
+    connect_timeout: 5s
+    http2_protocol_options: {}    
+    cluster_type:
+      name: envoy.clusters.dynamic_forward_proxy
+      typed_config:
+        "@type": type.googleapis.com/envoy.extensions.clusters.dynamic_forward_proxy.v3.ClusterConfig
+        dns_cache_config:
+          name: dynamic_forward_proxy_cache_config
+          dns_lookup_family: V4_ONLY
+    transport_socket:
+      name: envoy.transport_sockets.tls
+      typed_config:
+        "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+        common_tls_context:
+          validation_context:
+            trusted_ca:
+              filename: /etc/ssl/certs/ca-certificates.crt    
