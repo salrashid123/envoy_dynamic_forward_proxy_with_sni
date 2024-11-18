@@ -6,7 +6,7 @@ import (
 	"crypto/x509"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"sync"
 
 	"cloud.google.com/go/pubsub"
@@ -18,7 +18,7 @@ import (
 const ()
 
 var (
-	projectID = "your_project"
+	projectID = "core-eso"
 )
 
 func main() {
@@ -26,7 +26,7 @@ func main() {
 	flag.Parse()
 	ctx := context.Background()
 
-	pemServerCA, err := ioutil.ReadFile("../certs/tls-ca-chain.pem")
+	pemServerCA, err := os.ReadFile("../certs/root-ca.crt")
 	if err != nil {
 		panic(err)
 	}
@@ -44,8 +44,7 @@ func main() {
 	tlsCredentials := credentials.NewTLS(config)
 
 	client, err := pubsub.NewClient(ctx, projectID, option.WithEndpoint("localhost:8081"), option.WithGRPCDialOption(
-		grpc.WithTransportCredentials(tlsCredentials),
-	))
+		grpc.WithTransportCredentials(tlsCredentials)))
 	if err != nil {
 		panic(err)
 	}

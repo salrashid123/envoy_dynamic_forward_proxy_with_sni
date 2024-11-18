@@ -33,8 +33,9 @@ Then for either http or grpc
 #### HTTP
 
 Run
-```
-curl  -vvv  --cacert certs/tls-ca-chain.pem \
+
+```bash
+curl  -vvv  --cacert certs/root-ca.crt \
   -H "Host: httpbin.org" --connect-to  httpbin.org:443:127.0.0.1:8081 https://httpbin.org/get
 ```
 
@@ -42,15 +43,16 @@ curl  -vvv  --cacert certs/tls-ca-chain.pem \
 What you'll see is a connection to the localhost envoy over `:8081`  but the certificate presented is using the SNI information (eg, its `httpbin.org`...well the fake one i have signed).  Once the connection is established to envoy, a synthetic header is added on before sending the traffic out to the upstream
 
 ```text
-$ curl  -vvv  --cacert certs/tls-ca-chain.pem \
+$ curl  -vvv  --cacert certs/root-ca.crt \
   -H "Host: httpbin.org" --connect-to  httpbin.org:443:127.0.0.1:8081 https://httpbin.org/get
+  
 * Connecting to hostname: 127.0.0.1
 * Connecting to port: 8081
 *   Trying 127.0.0.1:8081...
 * Connected to 127.0.0.1 (127.0.0.1) port 8081 (#0)
 * ALPN: offers h2
 * ALPN: offers http/1.1
-*  CAfile: certs/tls-ca-chain.pem
+*  CAfile: certs/root-ca.crt
 *  CApath: /etc/ssl/certs
 
 * SSL connection using TLSv1.3 / TLS_AES_256_GCM_SHA384

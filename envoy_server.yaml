@@ -30,7 +30,8 @@ static_resources:
         typed_config:
           "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
           common_tls_context:
-            tls_certificates:
+            alpn_protocols: h2 
+            tls_certificates:            
             - certificate_chain:
                 filename: certs/googleapis.crt
               private_key:
